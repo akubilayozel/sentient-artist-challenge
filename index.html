@@ -1,179 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sentient Artist Challenge</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <style>
-    body{font-family:Arial, sans-serif; text-align:center; background:#f5f5f5; margin:0; padding:20px;}
-    h1{margin-top:0}
-    .card{background:#fff; max-width:860px; margin:0 auto 20px; padding:12px; border-radius:10px; box-shadow:0 6px 16px rgba(0,0,0,.08);}
-    .row{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
-    input[type="text"], input[type="file"]{padding:8px; border:1px solid #ddd; border-radius:8px; background:#fafafa}
-    button{padding:8px 12px; background:#007BFF; color:#fff; border:0; border-radius:6px; cursor:pointer}
-    button:disabled{background:#999; cursor:not-allowed}
-    .muted{opacity:.75}
-    .drawing{margin:20px; display:inline-block; background:#fff; padding:12px; border-radius:10px; box-shadow:0 6px 16px rgba(0,0,0,.08); width:320px}
-    .drawing img{width:100%; height:220px; object-fit:cover; border-radius:8px; background:#000}
-    .meta{display:flex; align-items:center; justify-content:space-between; margin-top:8px}
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f8f8f8; }
+    .card { display: inline-block; background: white; padding: 15px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    img { max-width: 300px; display: block; margin: 10px auto; }
+    button { padding: 6px 12px; border: none; border-radius: 4px; background: #777; color: white; cursor: pointer; }
   </style>
 </head>
 <body>
-  <h1>Sentient Artist Challenge</h1>
 
-  <!-- Yükleme Kartı -->
-  <div class="card">
-    <h3>Eser Yükle (JPEG/PNG)</h3>
-    <form id="uploadForm" class="row">
-      <input id="username" type="text" placeholder="Kullanıcı adı" required />
-      <input id="file" type="file" accept=".jpg,.jpeg,.png" required />
-      <button id="uploadBtn" type="submit">Yükle</button>
-      <span id="status" class="muted"></span>
-    </form>
-  </div>
+<h1>Sentient Artist Challenge</h1>
 
-  <div id="drawingsContainer"></div>
+<div>
+  <input type="text" id="username" placeholder="Kullanıcı adınız">
+  <input type="file" id="fileInput" accept="image/jpeg,image/png">
+  <button onclick="uploadFile()">Yükle</button>
+  <span id="status"></span>
+</div>
 
-  <!-- Firebase SDK (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-storage-compat.js"></script>
+<div id="gallery"></div>
 
-  <script>
-    // Firebase config (senin proje)
-    var firebaseConfig = {
-      apiKey: "AIzaSyCBL7S9ogBeWDRU1ac3oAY9KZ4bBcOyT08",
-      authDomain: "sentient-artist-challenge.firebaseapp.com",
-      projectId: "sentient-artist-challenge",
-      storageBucket: "sentient-artist-challenge.appspot.com",
-      messagingSenderId: "529201434995",
-      appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
-    };
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyCBL7S9ogBeWDRU1ac3oAY9KZ4bBcOyT08",
+    authDomain: "sentient-artist-challenge.firebaseapp.com",
+    projectId: "sentient-artist-challenge",
+    storageBucket: "sentient-artist-challenge.firebasestorage.app",
+    messagingSenderId: "529201434995",
+    appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
+  };
 
-    // Başlat
-    firebase.initializeApp(firebaseConfig);
-    var db = firebase.firestore();
-    var storage = firebase.storage();
+  firebase.initializeApp(firebaseConfig);
+  const storage = firebase.storage();
 
-    var container = document.getElementById('drawingsContainer');
+  async function uploadFile() {
+    const file = document.getElementById('fileInput').files[0];
+    const username = document.getElementById('username').value.trim();
+    const status = document.getElementById('status');
 
-    // --- Listele (oy sayısına göre) ---
-    db.collection("drawings").orderBy("votes", "desc").onSnapshot(function(snap){
-      container.innerHTML = "";
-      snap.forEach(function(doc){
-        var d = doc.data();
-        var votes = (d.votes !== undefined && d.votes !== null) ? d.votes : 0;
+    if (!username) {
+      alert("Lütfen kullanıcı adınızı girin.");
+      return;
+    }
+    if (!file) {
+      alert("Lütfen bir JPEG veya PNG dosyası seçin.");
+      return;
+    }
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      alert("Sadece JPEG ve PNG dosyaları yükleyebilirsiniz.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Dosya boyutu 10 MB'ı geçemez.");
+      return;
+    }
 
-        var card = document.createElement("div");
-        card.className = "drawing";
+    const path = `${username}/${Date.now()}_${file.name}`;
+    const fileRef = storage.ref().child(path);
 
-        var img = document.createElement("img");
-        img.referrerPolicy = "no-referrer";
-        img.onerror = function(){ img.style.background = "#111"; };
-        img.src = d.imageUrl;
-        img.alt = d.username;
+    status.textContent = "Yükleniyor...";
 
-        var meta = document.createElement("div");
-        meta.className = "meta";
+    try {
+      await fileRef.put(file);
+      const url = await fileRef.getDownloadURL();
+      status.textContent = "Yüklendi!";
+      showImage(username, url);
+    } catch (err) {
+      console.error("Yükleme hatası:", err);
+      status.textContent = "Yükleme başarısız.";
+    }
+  }
 
-        var nameEl = document.createElement("strong");
-        nameEl.appendChild(document.createTextNode(d.username));
+  function showImage(username, url) {
+    const gallery = document.getElementById('gallery');
+    const card = document.createElement('div');
+    card.className = "card";
+    card.innerHTML = `<strong>${username}</strong><br><img src="${url}" alt="Eser">`;
+    gallery.appendChild(card);
+  }
+</script>
 
-        var oyEl = document.createElement("span");
-        oyEl.innerHTML = "Oy: <b>" + votes + "</b>";
-
-        meta.appendChild(nameEl);
-        meta.appendChild(oyEl);
-
-        var btn = document.createElement("button");
-        btn.id = "btn-" + doc.id;
-        btn.appendChild(document.createTextNode("Oy Ver +1"));
-
-        card.appendChild(img);
-        card.appendChild(meta);
-        card.appendChild(btn);
-        container.appendChild(card);
-
-        // Aynı tarayıcıdan bir kez oy
-        var votedKey = "voted_" + doc.id;
-        if (localStorage.getItem(votedKey)) {
-          btn.disabled = true;
-          btn.textContent = "Oy verdin ✅";
-        }
-
-        btn.onclick = function () {
-          if (localStorage.getItem(votedKey)) return;
-          btn.disabled = true;
-
-          db.collection("drawings").doc(doc.id).get().then(function(s){
-            if (!s.exists) { alert("Eser bulunamadı."); btn.disabled = false; return; }
-            var cur = s.data().votes || 0;
-            return db.collection("drawings").doc(doc.id).update({ votes: cur + 1 });
-          }).then(function(){
-            localStorage.setItem(votedKey, "1");
-            btn.textContent = "Oy verdin ✅";
-          }).catch(function(e){
-            console.error(e);
-            btn.disabled = false;
-            alert("Oy hatası: " + e.message);
-          });
-        };
-      });
-    }, function(err){
-      console.error("onSnapshot error:", err);
-    });
-
-    // --- Formdan yükleme (JPEG/PNG + 10MB) ---
-    var form = document.getElementById('uploadForm');
-    var usernameEl = document.getElementById('username');
-    var fileEl = document.getElementById('file');
-    var statusEl = document.getElementById('status');
-    var uploadBtn = document.getElementById('uploadBtn');
-
-    // kullanıcı adını hatırla
-    usernameEl.value = localStorage.getItem('username') || "";
-
-    form.onsubmit = function(e){
-      e.preventDefault();
-      var username = usernameEl.value.trim();
-      var file = fileEl.files[0];
-      if (!username) { alert("Kullanıcı adı gir."); return; }
-      if (!file) { alert("Bir görsel seç."); return; }
-
-      // Yalnızca JPEG / PNG ve max 10MB
-      var okTypes = ['image/jpeg', 'image/png'];
-      if (okTypes.indexOf(file.type) === -1) { alert("Sadece JPEG veya PNG yükleyebilirsin."); return; }
-      if (file.size > 10 * 1024 * 1024) { alert("Dosya boyutu 10MB'ı geçemez."); return; }
-
-      localStorage.setItem('username', username);
-
-      uploadBtn.disabled = true;
-      statusEl.textContent = "Yükleniyor…";
-
-      var ext = file.type === 'image/png' ? '.png' : '.jpg';
-      var path = "drawings/" + Date.now() + "_" + username.replace(/\s+/g,'_') + ext;
-      var fileRef = storage.ref().child(path);
-
-      fileRef.put(file).then(function(){
-        return fileRef.getDownloadURL();
-      }).then(function(url){
-        return db.collection("drawings").add({
-          username: username,
-          imageUrl: url,
-          votes: 0,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }).then(function(){
-        statusEl.textContent = "Yüklendi! 🎉";
-        form.reset();
-        setTimeout(function(){ statusEl.textContent = ""; }, 1500);
-      }).catch(function(err){
-        console.error(err);
-        alert("Yükleme hatası: " + err.message);
-      }).finally(function(){
-        uploadBtn.disabled = false;
-      });
-    };
-  </script>
 </body>
 </html>
