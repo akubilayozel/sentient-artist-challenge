@@ -8,8 +8,8 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f8f8f8; }
-    .card { display: inline-block; background: white; padding: 15px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    img { max-width: 300px; display: block; margin: 10px auto; }
+    .card { display: inline-block; background: white; padding: 15px; border-radius: 8px; margin: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    img { width: 400px; height: 400px; object-fit: cover; border-radius: 8px; }
     button { padding: 6px 12px; border: none; border-radius: 4px; background: #777; color: white; cursor: pointer; }
   </style>
 </head>
@@ -40,6 +40,26 @@
   firebase.initializeApp(firebaseConfig);
   const storage = firebase.storage();
 
+  // Galeriyi yükle
+  async function loadGallery() {
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = "";
+    const listRef = storage.ref();
+    const res = await listRef.listAll();
+    for (const folderRef of res.prefixes) {
+      const files = await folderRef.listAll();
+      for (const itemRef of files.items) {
+        const url = await itemRef.getDownloadURL();
+        const username = folderRef.name;
+        const card = document.createElement('div');
+        card.className = "card";
+        card.innerHTML = `<strong>${username}</strong><br><img src="${url}" alt="Eser">`;
+        gallery.appendChild(card);
+      }
+    }
+  }
+
+  // Dosya yükleme
   async function uploadFile() {
     const file = document.getElementById('fileInput').files[0];
     const username = document.getElementById('username').value.trim();
@@ -62,6 +82,14 @@
       return;
     }
 
+    // Kullanıcı daha önce yüklemiş mi kontrol et
+    const userFolderRef = storage.ref().child(username);
+    const existing = await userFolderRef.listAll();
+    if (existing.items.length > 0) {
+      alert("Bu kullanıcı zaten bir görsel yüklemiş.");
+      return;
+    }
+
     const path = `${username}/${Date.now()}_${file.name}`;
     const fileRef = storage.ref().child(path);
 
@@ -69,22 +97,15 @@
 
     try {
       await fileRef.put(file);
-      const url = await fileRef.getDownloadURL();
       status.textContent = "Yüklendi!";
-      showImage(username, url);
+      loadGallery();
     } catch (err) {
       console.error("Yükleme hatası:", err);
       status.textContent = "Yükleme başarısız.";
     }
   }
 
-  function showImage(username, url) {
-    const gallery = document.getElementById('gallery');
-    const card = document.createElement('div');
-    card.className = "card";
-    card.innerHTML = `<strong>${username}</strong><br><img src="${url}" alt="Eser">`;
-    gallery.appendChild(card);
-  }
+  loadGallery();
 </script>
 
 </body>
