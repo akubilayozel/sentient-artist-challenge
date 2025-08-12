@@ -4,109 +4,187 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sentient Artist Challenge</title>
+
+  <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f8f8f8; }
-    .card { display: inline-block; background: white; padding: 15px; border-radius: 8px; margin: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    img { width: 400px; height: 400px; object-fit: cover; border-radius: 8px; }
-    button { padding: 6px 12px; border: none; border-radius: 4px; background: #777; color: white; cursor: pointer; }
+    :root { --gap: 12px; }
+    body{font-family:Arial, sans-serif; margin:20px; background:#f6f7f9; color:#111; text-align:center}
+    h1{margin:6px 0 14px}
+    .uploader{display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; margin-bottom:18px}
+    input[type="text"], input[type="file"]{padding:8px 10px; border:1px solid #ddd; border-radius:8px; background:#fff}
+    button{padding:8px 12px; border:none; border-radius:8px; background:#5865F2; color:#fff; cursor:pointer}
+    button:disabled{background:#aaa; cursor:not-allowed}
+    #status{min-width:90px; color:#666}
+
+    /* Grid */
+    #gallery{max-width:1080px; margin:0 auto; display:grid; gap:var(--gap); grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));}
+    .card{background:#fff; border-radius:12px; padding:10px; box-shadow:0 8px 18px rgba(0,0,0,.06); display:flex; flex-direction:column; align-items:center}
+    .thumb{width:200px; height:200px; border-radius:10px; overflow:hidden; cursor:zoom-in; background:#000}
+    .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+    .user{margin-top:8px; font-weight:600}
+
+    /* Lightbox */
+    #lightbox{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:9999}
+    #lightbox.open{display:flex}
+    #lightbox img{max-width:92vw; max-height:92vh; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5)}
+    #caption{position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:#fff; background:rgba(0,0,0,.5); padding:6px 10px; border-radius:8px; font-size:14px}
+    #closeBtn{position:absolute; top:14px; right:16px; font-size:14px; background:#222; border:1px solid rgba(255,255,255,.2); padding:6px 10px; border-radius:8px; color:#fff; cursor:pointer}
+    .muted{opacity:.7}
   </style>
 </head>
 <body>
 
-<h1>Sentient Artist Challenge</h1>
+  <h1>Sentient Artist Challenge</h1>
 
-<div>
-  <input type="text" id="username" placeholder="Kullanıcı adınız">
-  <input type="file" id="fileInput" accept="image/jpeg,image/png">
-  <button onclick="uploadFile()">Yükle</button>
-  <span id="status"></span>
-</div>
+  <div class="uploader">
+    <input type="text" id="username" placeholder="Kullanıcı adınız" />
+    <input type="file" id="fileInput" accept="image/jpeg,image/png" />
+    <button id="uploadBtn" onclick="uploadFile()">Yükle</button>
+    <span id="status" class="muted"></span>
+  </div>
 
-<div id="gallery"></div>
+  <div id="gallery"></div>
 
-<script>
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyCBL7S9ogBeWDRU1ac3oAY9KZ4bBcOyT08",
-    authDomain: "sentient-artist-challenge.firebaseapp.com",
-    projectId: "sentient-artist-challenge",
-    storageBucket: "sentient-artist-challenge.firebasestorage.app",
-    messagingSenderId: "529201434995",
-    appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
-  };
+  <!-- Lightbox -->
+  <div id="lightbox" onclick="closeLightbox(event)">
+    <img id="fullImg" alt="Eser">
+    <div id="caption"></div>
+    <button id="closeBtn" onclick="closeLightbox(event)">Kapat ✕</button>
+  </div>
 
-  firebase.initializeApp(firebaseConfig);
-  const storage = firebase.storage();
+  <script>
+    // --- Firebase config (senin proje) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCBL7S9ogBeWDRU1ac3oAY9KZ4bBcOyT08",
+      authDomain: "sentient-artist-challenge.firebaseapp.com",
+      projectId: "sentient-artist-challenge",
+      storageBucket: "sentient-artist-challenge.firebasestorage.app",
+      messagingSenderId: "529201434995",
+      appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
+    };
 
-  // Galeriyi yükle
-  async function loadGallery() {
-    const gallery = document.getElementById('gallery');
-    gallery.innerHTML = "";
-    const listRef = storage.ref();
-    const res = await listRef.listAll();
-    for (const folderRef of res.prefixes) {
-      const files = await folderRef.listAll();
-      for (const itemRef of files.items) {
-        const url = await itemRef.getDownloadURL();
-        const username = folderRef.name;
-        const card = document.createElement('div');
-        card.className = "card";
-        card.innerHTML = `<strong>${username}</strong><br><img src="${url}" alt="Eser">`;
-        gallery.appendChild(card);
+    firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+
+    // Kullanıcı adını hatırla
+    const usernameEl = document.getElementById('username');
+    usernameEl.value = localStorage.getItem('username') || "";
+
+    // --- Galeri Yükle ---
+    async function loadGallery(){
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Yükleniyor…</div>';
+
+      try{
+        const rootRef = storage.ref();
+        const list = await rootRef.listAll();
+
+        // Kullanıcı klasörlerindeki (prefixes) 1 dosyayı göster (zaten tek görsel kuralımız var)
+        const entries = [];
+        for (const folderRef of list.prefixes){
+          const files = await folderRef.listAll();
+          if (files.items.length){
+            const url = await files.items[0].getDownloadURL();
+            entries.push({ username: folderRef.name, url });
+          }
+        }
+
+        // İsim sırasına göre (istersen skor/oy gibi bir ölçüte çevrilebilir)
+        entries.sort((a,b)=> a.username.localeCompare(b.username));
+
+        gallery.innerHTML = "";
+        for (const e of entries){
+          const card = document.createElement('div');
+          card.className = 'card';
+
+          const t = document.createElement('div');
+          t.className = 'thumb';
+          const img = document.createElement('img');
+          img.src = e.url;
+          img.alt = e.username;
+          img.loading = "lazy";
+          t.appendChild(img);
+          t.onclick = () => openLightbox(e.url, e.username);
+
+          const u = document.createElement('div');
+          u.className = 'user';
+          u.textContent = e.username;
+
+          card.appendChild(t);
+          card.appendChild(u);
+          gallery.appendChild(card);
+        }
+
+        if (!entries.length){
+          gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Henüz görsel yok. İlk yükleyen sen ol!</div>';
+        }
+      } catch(err){
+        console.error(err);
+        document.getElementById('gallery').innerHTML =
+          '<div class="muted" style="grid-column:1/-1">Galeri yüklenemedi.</div>';
       }
     }
-  }
 
-  // Dosya yükleme
-  async function uploadFile() {
-    const file = document.getElementById('fileInput').files[0];
-    const username = document.getElementById('username').value.trim();
-    const status = document.getElementById('status');
+    // --- Dosya Yükleme (1 kullanıcı = 1 görsel) ---
+    async function uploadFile(){
+      const file = document.getElementById('fileInput').files[0];
+      const username = usernameEl.value.trim();
+      const status = document.getElementById('status');
+      const btn = document.getElementById('uploadBtn');
 
-    if (!username) {
-      alert("Lütfen kullanıcı adınızı girin.");
-      return;
+      if (!username){ alert("Lütfen kullanıcı adınızı girin."); return; }
+      if (!file){ alert("Lütfen bir JPEG veya PNG dosyası seçin."); return; }
+      if (!['image/jpeg','image/png'].includes(file.type)){ alert("Sadece JPEG ve PNG dosyaları yükleyebilirsiniz."); return; }
+      if (file.size > 10*1024*1024){ alert("Dosya boyutu 10 MB'ı geçemez."); return; }
+
+      // Kullanıcı daha önce yüklemiş mi?
+      const userFolderRef = storage.ref().child(username);
+      const existing = await userFolderRef.listAll();
+      if (existing.items.length > 0){
+        alert("Bu kullanıcı zaten bir görsel yüklemiş.");
+        return;
+      }
+
+      // Yükleme
+      btn.disabled = true; status.textContent = "Yükleniyor…";
+      try{
+        localStorage.setItem('username', username);
+        const path = `${username}/${Date.now()}_${file.name}`;
+        const fileRef = storage.ref().child(path);
+        await fileRef.put(file);
+        status.textContent = "Yüklendi!";
+        await loadGallery();
+      } catch(err){
+        console.error("Yükleme hatası:", err);
+        status.textContent = "Yükleme başarısız.";
+      } finally {
+        btn.disabled = false;
+        setTimeout(()=> status.textContent="", 1500);
+      }
     }
-    if (!file) {
-      alert("Lütfen bir JPEG veya PNG dosyası seçin.");
-      return;
+
+    // --- Lightbox ---
+    function openLightbox(url, username){
+      const lb = document.getElementById('lightbox');
+      document.getElementById('fullImg').src = url;
+      document.getElementById('caption').textContent = username;
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
     }
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      alert("Sadece JPEG ve PNG dosyaları yükleyebilirsiniz.");
-      return;
+    function closeLightbox(e){
+      // butona tıklama veya arka plana tıklama, Esc ile de kapanır
+      if (e && e.target && e.target.id !== 'lightbox' && e.target.id !== 'closeBtn') return;
+      const lb = document.getElementById('lightbox');
+      lb.classList.remove('open');
+      document.getElementById('fullImg').src = "";
+      document.body.style.overflow = '';
     }
-    if (file.size > 10 * 1024 * 1024) {
-      alert("Dosya boyutu 10 MB'ı geçemez.");
-      return;
-    }
+    window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeLightbox({target:{id:'lightbox'}}); });
 
-    // Kullanıcı daha önce yüklemiş mi kontrol et
-    const userFolderRef = storage.ref().child(username);
-    const existing = await userFolderRef.listAll();
-    if (existing.items.length > 0) {
-      alert("Bu kullanıcı zaten bir görsel yüklemiş.");
-      return;
-    }
-
-    const path = `${username}/${Date.now()}_${file.name}`;
-    const fileRef = storage.ref().child(path);
-
-    status.textContent = "Yükleniyor...";
-
-    try {
-      await fileRef.put(file);
-      status.textContent = "Yüklendi!";
-      loadGallery();
-    } catch (err) {
-      console.error("Yükleme hatası:", err);
-      status.textContent = "Yükleme başarısız.";
-    }
-  }
-
-  loadGallery();
-</script>
-
+    loadGallery();
+  </script>
 </body>
 </html>
