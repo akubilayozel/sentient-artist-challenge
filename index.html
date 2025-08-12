@@ -18,13 +18,13 @@
   <h1>Sentient Artist Challenge</h1>
   <div id="drawingsContainer"></div>
 
-  <!-- Firebase SDK (compat sürümleri) -->
+  <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 
   <script>
-    // Senin Firebase config'in
-    const firebaseConfig = {
+    // Firebase config (senin proje)
+    var firebaseConfig = {
       apiKey: "AIzaSyCBL7S9ogBeWDRU1ac3oAY9KZ4bBcOyT08",
       authDomain: "sentient-artist-challenge.firebaseapp.com",
       projectId: "sentient-artist-challenge",
@@ -35,48 +35,75 @@
 
     // Başlat
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    var db = firebase.firestore();
 
-    const container = document.getElementById('drawingsContainer');
+    var container = document.getElementById('drawingsContainer');
+    console.log('App started');
 
     // Listele (oy sayısına göre)
-    db.collection("drawings").orderBy("votes", "desc").onSnapshot(snap => {
+    db.collection("drawings").orderBy("votes", "desc").onSnapshot(function(snap){
+      console.log('docs:', snap.size);
       container.innerHTML = "";
-      snap.forEach(doc => {
-        const d = doc.data();
-        const card = document.createElement("div");
+
+      snap.forEach(function(doc){
+        var d = doc.data();
+        var votes = (d.votes !== undefined && d.votes !== null) ? d.votes : 0;
+
+        // Kart
+        var card = document.createElement("div");
         card.className = "drawing";
-        card.innerHTML = `
-          <img src="${d.imageUrl}" alt="${d.username}">
-          <div class="meta">
-            <strong>${d.username}</strong>
-            <span>Oy: <b>${d.votes ?? 0}</b></span>
-          </div>
-          <button id="btn-${doc.id}">Oy Ver +1</button>
-        `;
+
+        var img = document.createElement("img");
+        img.src = d.imageUrl;
+        img.alt = d.username;
+
+        var meta = document.createElement("div");
+        meta.className = "meta";
+
+        var nameEl = document.createElement("strong");
+        nameEl.appendChild(document.createTextNode(d.username));
+
+        var oyEl = document.createElement("span");
+        oyEl.innerHTML = "Oy: <b>" + votes + "</b>";
+
+        meta.appendChild(nameEl);
+        meta.appendChild(oyEl);
+
+        var btn = document.createElement("button");
+        btn.id = "btn-" + doc.id;
+        btn.appendChild(document.createTextNode("Oy Ver +1"));
+
+        card.appendChild(img);
+        card.appendChild(meta);
+        card.appendChild(btn);
         container.appendChild(card);
 
-        const btn = document.getElementById(\`btn-\${doc.id}\`);
-        const votedKey = \`voted_\${doc.id}\`;
+        // Aynı tarayıcıdan bir kez oy
+        var votedKey = "voted_" + doc.id;
         if (localStorage.getItem(votedKey)) {
-          btn.disabled = true; btn.textContent = "Oy verdin ✅";
+          btn.disabled = true;
+          btn.textContent = "Oy verdin ✅";
         }
-        btn.onclick = async () => {
+
+        btn.onclick = function () {
           if (localStorage.getItem(votedKey)) return;
           btn.disabled = true;
-          try {
-            await db.collection("drawings").doc(doc.id).update({
-              votes: (d.votes || 0) + 1
-            });
+
+          db.collection("drawings").doc(doc.id).get().then(function(s){
+            if (!s.exists) { alert("Eser bulunamadı."); btn.disabled = false; return; }
+            var cur = s.data().votes || 0;
+            return db.collection("drawings").doc(doc.id).update({ votes: cur + 1 });
+          }).then(function(){
             localStorage.setItem(votedKey, "1");
             btn.textContent = "Oy verdin ✅";
-          } catch (e) {
+          }).catch(function(e){
+            console.error(e);
             btn.disabled = false;
             alert("Oy hatası: " + e.message);
-          }
+          });
         };
       });
-    }, err => {
+    }, function(err){
       console.error("onSnapshot error:", err);
     });
   </script>
