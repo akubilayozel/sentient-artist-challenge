@@ -13,7 +13,10 @@
   <style>
     :root { --gap: 14px; }
     body{font-family:Arial, sans-serif; margin:20px; background:#f6f7f9; color:#111; text-align:center}
-    h1{margin:6px 0 16px}
+    h1{margin:6px 0 6px}
+    .muted{opacity:.7}
+    .round{margin-bottom:16px; font-weight:700}
+
     .uploader{display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap; margin-bottom:20px}
     input[type="text"], input[type="file"]{padding:9px 12px; border:1px solid #ddd; border-radius:10px; background:#fff}
     button{padding:9px 14px; border:none; border-radius:10px; background:#5865F2; color:#fff; cursor:pointer}
@@ -28,7 +31,6 @@
     .user{margin-top:10px; font-weight:700}
     .meta{display:flex; gap:8px; align-items:center; margin-top:8px}
     .count{background:#f0f1f5; padding:6px 10px; border-radius:18px; font-weight:600}
-    .muted{opacity:.7}
 
     /* Lightbox */
     #lightbox{position:fixed; inset:0; background:rgba(0,0,0,.86); display:none; align-items:center; justify-content:center; z-index:9999}
@@ -41,6 +43,8 @@
 <body>
 
   <h1>Sentient Artist Challenge</h1>
+  <!-- Haftayı buradan yönetiyoruz -->
+  <div class="round">Hafta: <span id="roundLabel"></span></div>
 
   <div class="uploader">
     <input type="text" id="username" placeholder="Kullanıcı adınız" />
@@ -72,30 +76,36 @@
     const storage   = firebase.storage();
     const db        = firebase.firestore();
 
+    /* ---------------- Haftalık yarışma ID'si ----------------
+       >>> Her hafta sadece burayı değiştir ve deploy et
+       Örn: '2025-W33', '2025-08-11', 'Round-17' vs. 
+    ---------------------------------------------------------------- */
+    const ROUND_ID = '2025-W33'; // <--- Haftayı değiştir
+    document.getElementById('roundLabel').textContent = ROUND_ID;
+
+    // LocalStorage anahtarları da haftaya özel:
+    const hasVotedKey = `hasVoted_${ROUND_ID}`;
+    const votedForKey = `votedFor_${ROUND_ID}`;
+
     /* Kullanıcı adını hatırla */
     const usernameEl = document.getElementById('username');
     usernameEl.value = localStorage.getItem('username') || "";
 
-    /* Oy kullanmış mı? (tek oy) */
-    function hasVoted() {
-      return localStorage.getItem('hasVoted') === 'true';
-    }
-    function markVoted(docId) {
-      localStorage.setItem('hasVoted','true');
-      localStorage.setItem('votedFor', docId);
-    }
+    /* Oy kullanmış mı? (tek oy, haftaya özel) */
+    function hasVoted()      { return localStorage.getItem(hasVotedKey) === 'true'; }
+    function markVoted(id)   { localStorage.setItem(hasVotedKey,'true'); localStorage.setItem(votedForKey,id); }
 
-    /* --------------- Galeri (en çok oy en üstte) --------------- */
+    /* --------------- Galeri (en çok oy üstte) --------------- */
     const gallery = document.getElementById('gallery');
 
     function render(docs) {
       gallery.innerHTML = "";
       if (!docs.length) {
-        gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Henüz görsel yok. İlk yükleyen sen ol!</div>';
+        gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Bu hafta henüz görsel yok. İlk yükleyen sen ol!</div>';
         return;
       }
       const voted = hasVoted();
-      const votedFor = localStorage.getItem('votedFor');
+      const votedFor = localStorage.getItem(votedForKey);
 
       docs.forEach(d => {
         const data = d.data();
@@ -129,10 +139,9 @@
         btn.onclick = async () => {
           const voter = usernameEl.value.trim();
           if (!voter) { alert("Oy vermek için kullanıcı adı girin."); return; }
-          if (hasVoted()) { alert("Zaten oy kullandın."); return; }
+          if (hasVoted()) { alert("Bu haftaki oy hakkını kullandın."); return; }
 
           try {
-            // Güvenli artış
             await db.collection('drawings').doc(d.id)
               .update({ votes: firebase.firestore.FieldValue.increment(1) });
 
@@ -153,15 +162,16 @@
       });
     }
 
-    // Canlı sıralama: votes desc
+    // Canlı sıralama: sadece bu haftanın verisi, votes desc
     db.collection('drawings')
-      .orderBy('votes', 'desc')   // en çok oy üstte
+      .where('round','==',ROUND_ID)
+      .orderBy('votes','desc')
       .onSnapshot(snap => render(snap.docs), err => {
         console.error(err);
         gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Galeri yüklenemedi.</div>';
       });
 
-    /* --------------- Yükleme (1 kullanıcı = 1 görsel) --------------- */
+    /* --------------- Yükleme (1 kullanıcı = 1 görsel / hafta) --------------- */
     async function uploadFile(){
       const file = document.getElementById('fileInput').files[0];
       const username = usernameEl.value.trim();
@@ -173,11 +183,13 @@
       if (!['image/jpeg','image/png'].includes(file.type)){ alert("Sadece JPEG ve PNG yükleyebilirsiniz."); return; }
       if (file.size > 10*1024*1024){ alert("Dosya boyutu 10 MB'ı geçemez."); return; }
 
-      // Bu kullanıcı daha önce görsel yükledi mi? (Firestore dokümanı)
-      const docRef = db.collection('drawings').doc(username);
+      // Bu kullanıcı bu HAFTADA daha önce yüklemiş mi?
+      // Doc id: `${ROUND_ID}__${username}`
+      const docId  = `${ROUND_ID}__${username}`;
+      const docRef = db.collection('drawings').doc(docId);
       const exist  = await docRef.get();
       if (exist.exists){
-        alert("Bu kullanıcı zaten bir görsel yüklemiş.");
+        alert("Bu haftada zaten bir görsel yüklediniz.");
         return;
       }
 
@@ -185,14 +197,14 @@
       try{
         localStorage.setItem('username', username);
 
-        // Storage'a yükle
-        const path   = `${username}/${Date.now()}_${file.name}`;
+        // Storage'a haftaya özel klasöre yükle
+        const path    = `${ROUND_ID}/${username}/${Date.now()}_${file.name}`;
         const fileRef = storage.ref().child(path);
         await fileRef.put(file);
         const url = await fileRef.getDownloadURL();
 
-        // Firestore'a kaydet (oy = 0)
-        await docRef.set({ username, imageUrl: url, votes: 0 });
+        // Firestore'a kaydet (oy = 0), haftayı etiketle
+        await docRef.set({ username, imageUrl: url, votes: 0, round: ROUND_ID });
 
         status.textContent = "Yüklendi!";
       } catch(err){
