@@ -2,236 +2,220 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sentient Artist Challenge</title>
-
-  <!-- Firebase compat SDK'lar -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
   <style>
-    :root { --gap: 14px; }
-    body{font-family:Arial, sans-serif; margin:20px; background:#f6f7f9; color:#111; text-align:center}
-    h1{margin:6px 0 6px}
-    .muted{opacity:.7}
-    .round{margin-bottom:16px; font-weight:700}
-
-    .uploader{display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap; margin-bottom:20px}
-    input[type="text"], input[type="file"]{padding:9px 12px; border:1px solid #ddd; border-radius:10px; background:#fff}
-    button{padding:9px 14px; border:none; border-radius:10px; background:#5865F2; color:#fff; cursor:pointer}
-    button:disabled{background:#aaa; cursor:not-allowed}
-    #status{min-width:100px; color:#666}
-
-    /* Grid */
-    #gallery{max-width:1220px; margin:0 auto; display:grid; gap:var(--gap); grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));}
-    .card{background:#fff; border-radius:14px; padding:12px; box-shadow:0 10px 20px rgba(0,0,0,.06); display:flex; flex-direction:column; align-items:center}
-    .thumb{width:300px; height:300px; border-radius:12px; overflow:hidden; cursor:zoom-in; background:#000}
-    .thumb img{width:100%; height:100%; object-fit:cover; display:block}
-    .user{margin-top:10px; font-weight:700}
-    .meta{display:flex; gap:8px; align-items:center; margin-top:8px}
-    .count{background:#f0f1f5; padding:6px 10px; border-radius:18px; font-weight:600}
-
-    /* Lightbox */
-    #lightbox{position:fixed; inset:0; background:rgba(0,0,0,.86); display:none; align-items:center; justify-content:center; z-index:9999}
-    #lightbox.open{display:flex}
-    #lightbox img{max-width:92vw; max-height:92vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.5)}
-    #caption{position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:#fff; background:rgba(0,0,0,.45); padding:7px 12px; border-radius:10px; font-size:14px}
-    #closeBtn{position:absolute; top:14px; right:16px; font-size:14px; background:#222; border:1px solid rgba(255,255,255,.25); padding:7px 12px; border-radius:10px; color:#fff; cursor:pointer}
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f6fa;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+    .timer {
+      font-size: 1.2rem;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    .admin-panel {
+      margin: 20px;
+      padding: 10px;
+      border: 2px dashed #888;
+      display: inline-block;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .card {
+      background: white;
+      padding: 10px;
+      margin: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      width: 220px;
+    }
+    .card img {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    button {
+      padding: 5px 10px;
+      margin-top: 5px;
+      border: none;
+      background-color: #4a6cf7;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: gray;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
 
   <h1>Sentient Artist Challenge</h1>
-  <!-- Haftayı buradan yönetiyoruz -->
-  <div class="round">Hafta: <span id="roundLabel"></span></div>
+  <h3 id="roundLabel"></h3>
+  <div class="timer" id="timer">Oylama başlamadı</div>
 
-  <div class="uploader">
+  <!-- Admin Panel -->
+  <div class="admin-panel">
+    <h3>Admin Panel</h3>
+    <input type="password" id="adminKey" placeholder="Admin Key" />
+    <button id="startVoting">Oylamayı Başlat (24 saat)</button>
+    <button id="stopVoting">Oylamayı Durdur</button>
+  </div>
+
+  <!-- Yükleme Alanı -->
+  <div>
     <input type="text" id="username" placeholder="Kullanıcı adınız" />
-    <input type="file" id="fileInput" accept="image/jpeg,image/png" />
-    <button id="uploadBtn" onclick="uploadFile()">Yükle</button>
-    <span id="status" class="muted"></span>
+    <input type="file" id="fileInput" />
+    <button id="uploadBtn">Yükle</button>
   </div>
 
-  <div id="gallery"></div>
+  <!-- Galeri -->
+  <div class="gallery" id="gallery"></div>
 
-  <!-- Lightbox -->
-  <div id="lightbox" onclick="closeLightbox(event)">
-    <img id="fullImg" alt="Eser">
-    <div id="caption"></div>
-    <button id="closeBtn" onclick="closeLightbox(event)">Kapat ✕</button>
-  </div>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 
   <script>
-    /* ---------------- Firebase init ---------------- */
+    // Firebase config SENİN VERİLERİNLE
     const firebaseConfig = {
-      apiKey: "AIzaSyCBL7S9ogBeWDRU1ac3oAY9KZ4bBcOyT08",
+      apiKey: "AIzaSyCBL7S0goBeWDRU1ac3oAY9KZ40bcOYtO0",
       authDomain: "sentient-artist-challenge.firebaseapp.com",
       projectId: "sentient-artist-challenge",
       storageBucket: "sentient-artist-challenge.firebasestorage.app",
       messagingSenderId: "529201434995",
       appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
     };
+
     firebase.initializeApp(firebaseConfig);
-    const storage   = firebase.storage();
-    const db        = firebase.firestore();
+    const db = firebase.firestore();
+    const storage = firebase.storage();
 
-    /* ---------------- Haftalık yarışma ID'si ----------------
-       >>> Her hafta sadece burayı değiştir ve deploy et
-       Örn: '2025-W33', '2025-08-11', 'Round-17' vs. 
-    ---------------------------------------------------------------- */
-    const ROUND_ID = '2025-W33'; // <--- Haftayı değiştir
-    document.getElementById('roundLabel').textContent = ROUND_ID;
+    const roundLabel = document.getElementById("roundLabel");
+    const timerEl = document.getElementById("timer");
+    const galleryEl = document.getElementById("gallery");
 
-    // LocalStorage anahtarları da haftaya özel:
-    const hasVotedKey = `hasVoted_${ROUND_ID}`;
-    const votedForKey = `votedFor_${ROUND_ID}`;
+    const uploadBtn = document.getElementById("uploadBtn");
+    const startBtn = document.getElementById("startVoting");
+    const stopBtn = document.getElementById("stopVoting");
+    const adminKeyInput = document.getElementById("adminKey");
 
-    /* Kullanıcı adını hatırla */
-    const usernameEl = document.getElementById('username');
-    usernameEl.value = localStorage.getItem('username') || "";
+    let currentRound = "";
 
-    /* Oy kullanmış mı? (tek oy, haftaya özel) */
-    function hasVoted()      { return localStorage.getItem(hasVotedKey) === 'true'; }
-    function markVoted(id)   { localStorage.setItem(hasVotedKey,'true'); localStorage.setItem(votedForKey,id); }
+    // Haftayı hesapla
+    function getWeekRound() {
+      const now = new Date();
+      const onejan = new Date(now.getFullYear(), 0, 1);
+      const week = Math.ceil((((now - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+      return `${now.getFullYear()}-W${week}`;
+    }
+    currentRound = getWeekRound();
+    roundLabel.textContent = `Hafta: ${currentRound}`;
 
-    /* --------------- Galeri (en çok oy üstte) --------------- */
-    const gallery = document.getElementById('gallery');
+    // Oylama zamanlayıcısı
+    function updateTimer(endTime) {
+      const interval = setInterval(() => {
+        const now = Date.now();
+        const diff = endTime - now;
+        if (diff <= 0) {
+          clearInterval(interval);
+          timerEl.textContent = "Oylama sona erdi";
+          return;
+        }
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        timerEl.textContent = `Kalan süre: ${hours}sa ${minutes}dk ${seconds}sn`;
+      }, 1000);
+    }
 
-    function render(docs) {
-      gallery.innerHTML = "";
-      if (!docs.length) {
-        gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Bu hafta henüz görsel yok. İlk yükleyen sen ol!</div>';
-        return;
+    // Ayarlar değişince dinle
+    db.collection("settings").doc("config").onSnapshot(doc => {
+      const data = doc.data();
+      if (data.votingOpen) {
+        updateTimer(data.votingEndsAt);
+      } else {
+        timerEl.textContent = "Oylama kapalı";
       }
-      const voted = hasVoted();
-      const votedFor = localStorage.getItem(votedForKey);
+    });
 
-      docs.forEach(d => {
-        const data = d.data();
-        const card = document.createElement('div');
-        card.className = 'card';
+    // Admin başlatma
+    startBtn.addEventListener("click", async () => {
+      const key = adminKeyInput.value;
+      const endTime = Date.now() + (24 * 60 * 60 * 1000); // 24 saat
+      await db.collection("settings").doc("config").set({
+        votingOpen: true,
+        votingEndsAt: endTime,
+        roundId: currentRound,
+        adminKey: key
+      });
+    });
 
-        const t = document.createElement('div');
-        t.className = 'thumb';
-        const img = document.createElement('img');
-        img.src = data.imageUrl;
-        img.alt = data.username;
-        img.loading = "lazy";
-        t.appendChild(img);
-        t.onclick = () => openLightbox(data.imageUrl, data.username);
+    // Admin durdurma
+    stopBtn.addEventListener("click", async () => {
+      const key = adminKeyInput.value;
+      await db.collection("settings").doc("config").set({
+        votingOpen: false,
+        votingEndsAt: 0,
+        roundId: currentRound,
+        adminKey: key
+      });
+    });
 
-        const u = document.createElement('div');
-        u.className = 'user';
-        u.textContent = data.username;
+    // Resim yükleme
+    uploadBtn.addEventListener("click", async () => {
+      const username = document.getElementById("username").value;
+      const file = document.getElementById("fileInput").files[0];
+      if (!username || !file) return alert("Kullanıcı adı ve dosya gerekli");
+      const storageRef = storage.ref(`${currentRound}/${username}_${file.name}`);
+      await storageRef.put(file);
+      const url = await storageRef.getDownloadURL();
+      await db.collection("drawings").doc(`${currentRound}__${username}`).set({
+        username,
+        imageUrl: url,
+        votes: 0,
+        round: currentRound
+      });
+    });
 
-        const meta = document.createElement('div');
-        meta.className = 'meta';
+    // Galeriyi yükle
+    db.collection("drawings").where("round", "==", currentRound)
+      .onSnapshot(snapshot => {
+        galleryEl.innerHTML = "";
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <img src="${data.imageUrl}" />
+            <h4>${data.username}</h4>
+            <p>Oy: ${data.votes}</p>
+            <button onclick="vote('${doc.id}', ${data.votes})">Oy Ver</button>
+          `;
+          galleryEl.appendChild(card);
+        });
+      });
 
-        const count = document.createElement('div');
-        count.className = 'count';
-        count.textContent = `Oy: ${data.votes ?? 0}`;
-
-        const btn = document.createElement('button');
-        btn.textContent = voted ? (votedFor === d.id ? 'Oy verdin ✓' : 'Oy hakkın bitti') : 'Oy Ver +1';
-        btn.disabled    = voted;
-
-        btn.onclick = async () => {
-          const voter = usernameEl.value.trim();
-          if (!voter) { alert("Oy vermek için kullanıcı adı girin."); return; }
-          if (hasVoted()) { alert("Bu haftaki oy hakkını kullandın."); return; }
-
-          try {
-            await db.collection('drawings').doc(d.id)
-              .update({ votes: firebase.firestore.FieldValue.increment(1) });
-
-            markVoted(d.id);
-          } catch (err) {
-            console.error(err);
-            alert("Oy verilirken hata oluştu.");
-          }
-        };
-
-        meta.appendChild(count);
-        meta.appendChild(btn);
-
-        card.appendChild(t);
-        card.appendChild(u);
-        card.appendChild(meta);
-        gallery.appendChild(card);
+    // Oy verme
+    async function vote(id, currentVotes) {
+      await db.collection("drawings").doc(id).update({
+        votes: currentVotes + 1
       });
     }
-
-    // Canlı sıralama: sadece bu haftanın verisi, votes desc
-    db.collection('drawings')
-      .where('round','==',ROUND_ID)
-      .orderBy('votes','desc')
-      .onSnapshot(snap => render(snap.docs), err => {
-        console.error(err);
-        gallery.innerHTML = '<div class="muted" style="grid-column:1/-1">Galeri yüklenemedi.</div>';
-      });
-
-    /* --------------- Yükleme (1 kullanıcı = 1 görsel / hafta) --------------- */
-    async function uploadFile(){
-      const file = document.getElementById('fileInput').files[0];
-      const username = usernameEl.value.trim();
-      const status = document.getElementById('status');
-      const btn = document.getElementById('uploadBtn');
-
-      if (!username){ alert("Lütfen kullanıcı adınızı girin."); return; }
-      if (!file){ alert("Lütfen bir JPEG/PNG dosyası seçin."); return; }
-      if (!['image/jpeg','image/png'].includes(file.type)){ alert("Sadece JPEG ve PNG yükleyebilirsiniz."); return; }
-      if (file.size > 10*1024*1024){ alert("Dosya boyutu 10 MB'ı geçemez."); return; }
-
-      // Bu kullanıcı bu HAFTADA daha önce yüklemiş mi?
-      // Doc id: `${ROUND_ID}__${username}`
-      const docId  = `${ROUND_ID}__${username}`;
-      const docRef = db.collection('drawings').doc(docId);
-      const exist  = await docRef.get();
-      if (exist.exists){
-        alert("Bu haftada zaten bir görsel yüklediniz.");
-        return;
-      }
-
-      btn.disabled = true; status.textContent = "Yükleniyor…";
-      try{
-        localStorage.setItem('username', username);
-
-        // Storage'a haftaya özel klasöre yükle
-        const path    = `${ROUND_ID}/${username}/${Date.now()}_${file.name}`;
-        const fileRef = storage.ref().child(path);
-        await fileRef.put(file);
-        const url = await fileRef.getDownloadURL();
-
-        // Firestore'a kaydet (oy = 0), haftayı etiketle
-        await docRef.set({ username, imageUrl: url, votes: 0, round: ROUND_ID });
-
-        status.textContent = "Yüklendi!";
-      } catch(err){
-        console.error("Yükleme hatası:", err);
-        status.textContent = "Yükleme başarısız.";
-      } finally{
-        btn.disabled = false;
-        setTimeout(()=> status.textContent = "", 1500);
-      }
-    }
-
-    /* --------------- Lightbox --------------- */
-    function openLightbox(url, username){
-      const lb = document.getElementById('lightbox');
-      document.getElementById('fullImg').src = url;
-      document.getElementById('caption').textContent = username;
-      lb.classList.add('open');
-      document.body.style.overflow = 'hidden';
-    }
-    function closeLightbox(e){
-      if (e && e.target && e.target.id !== 'lightbox' && e.target.id !== 'closeBtn') return;
-      const lb = document.getElementById('lightbox');
-      lb.classList.remove('open');
-      document.getElementById('fullImg').src = "";
-      document.body.style.overflow = '';
-    }
-    window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeLightbox({target:{id:'lightbox'}}); });
   </script>
+
 </body>
 </html>
