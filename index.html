@@ -1,249 +1,223 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentient Artist Challenge</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #111;
-            color: white;
-        }
-        .card {
-            background: #1e1e1e;
-            padding: 10px;
-            margin: 10px;
-            display: inline-block;
-            border-radius: 10px;
-            width: 250px;
-            vertical-align: top;
-        }
-        img {
-            width: 100%;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        img:hover {
-            transform: scale(1.05);
-        }
-        button {
-            background: #4a6cf7;
-            border: none;
-            padding: 8px 15px;
-            margin-top: 10px;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:disabled {
-            background: gray;
-            cursor: not-allowed;
-        }
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 999;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.9);
-        }
-        .modal-content {
-            margin: 5% auto;
-            display: block;
-            max-width: 90%;
-            max-height: 80%;
-        }
-        .close {
-            position: absolute;
-            top: 20px;
-            right: 35px;
-            color: white;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sentient Artist Challenge</title>
+  <style>
+    body{font-family:Arial, sans-serif;background:#0f0f10;color:#fff;text-align:center;margin:0}
+    h1{margin:24px 0 6px}
+    h3{margin:6px 0 18px;color:#cfcfcf}
+    #username{padding:10px 12px;border-radius:8px;border:1px solid #333;background:#17171a;color:#fff;outline:none;width:240px}
+    #uploadBtn{background:#4a6cf7;border:none;padding:10px 16px;border-radius:8px;color:#fff;margin-left:10px;cursor:pointer}
+    #uploadBtn:disabled{background:#555;cursor:not-allowed}
+    #gallery{max-width:1200px;margin:24px auto 60px;display:flex;flex-wrap:wrap;justify-content:center;gap:18px}
+    .card{background:#18191c;border:1px solid #282a2f;border-radius:14px;padding:10px;width:280px}
+    .card h4{margin:10px 0 6px}
+    .card p{margin:0;color:#c9c9c9}
+    .card button{background:#4a6cf7;border:none;padding:8px 14px;color:#fff;border-radius:8px;margin-top:10px;cursor:pointer}
+    .card button:disabled{background:#555;cursor:not-allowed}
+    .thumb{width:100%;border-radius:10px;cursor:pointer;transition:transform .2s}
+    .thumb:hover{transform:scale(1.03)}
+
+    /* Modal */
+    .modal{display:none;position:fixed;z-index:999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.9)}
+    .modal-content{margin:5% auto;display:block;max-width:90%;max-height:80%}
+    .close{position:absolute;top:20px;right:28px;color:#fff;font-size:40px;cursor:pointer}
+  </style>
 </head>
 <body>
+  <h1>Sentient Artist Challenge</h1>
+  <h3 id="roundId">Hafta: </h3>
+  <h3 id="countdown">Kalan süre: </h3>
 
-    <h1>Sentient Artist Challenge</h1>
-    <h3 id="roundId">Hafta: </h3>
-    <h3 id="countdown">Kalan süre: </h3>
+  <!-- Yükleme alanı -->
+  <input id="username" placeholder="Kullanıcı adınız"/>
+  <input type="file" id="imageFile" />
+  <button id="uploadBtn">Yükle</button>
 
-    <!-- Kullanıcı yükleme alanı -->
-    <input type="text" id="username" placeholder="Kullanıcı adınız">
-    <input type="file" id="imageFile">
-    <button id="uploadBtn">Yükle</button>
+  <div id="gallery"></div>
 
-    <div id="gallery"></div>
+  <!-- Modal -->
+  <div id="imageModal" class="modal">
+    <span class="close" id="closeModal">&times;</span>
+    <img id="modalImage" class="modal-content"/>
+  </div>
 
-    <!-- Modal -->
-    <div id="imageModal" class="modal">
-        <span class="close" id="closeModal">&times;</span>
-        <img class="modal-content" id="modalImage">
-    </div>
+  <!-- Firebase (COMPAT CDN'ler) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js"></script>
+  <script>
+  // --- Firebase config (senin projen) ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyCBL7S0goBeWDRU1ac3oAY9KZ40bcOYtO0",
+    authDomain: "sentient-artist-challenge.firebaseapp.com",
+    projectId: "sentient-artist-challenge",
+    storageBucket: "sentient-artist-challenge.firebasestorage.app",
+    messagingSenderId: "529201434995",
+    appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
+  };
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCBL7S0goBeWDRU1ac3oAY9KZ40bcOYtO0",
-            authDomain: "sentient-artist-challenge.firebaseapp.com",
-            projectId: "sentient-artist-challenge",
-            storageBucket: "sentient-artist-challenge.firebasestorage.app",
-            messagingSenderId: "529201434995",
-            appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
-        };
+  // Başlat
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const storage = firebase.storage();
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+  let currentRound = "";
+  let currentUser  = "";
 
-        let currentUser = "";
-        let currentRound = "";
+  // Sayaç
+  function startCountdown(endMillis){
+    const el = document.getElementById("countdown");
+    function tick(){
+      const now = Date.now();
+      const dist = endMillis - now;
+      if(dist <= 0){
+        el.textContent = "Oylama kapandı!";
+        clearInterval(tmr);
+        return;
+      }
+      const hours = Math.floor((dist % (1000*60*60*24))/(1000*60*60));
+      const minutes = Math.floor((dist % (1000*60*60))/(1000*60));
+      const seconds = Math.floor((dist % (1000*60))/1000);
+      el.textContent = `Kalan süre: ${hours}sa ${minutes}dk ${seconds}sn`;
+    }
+    tick();
+    const tmr = setInterval(tick, 1000);
+  }
 
-        function updateCountdown(endTime) {
-            const countdownElement = document.getElementById("countdown");
+  // Ayarları dinle
+  function loadConfig(){
+    db.collection("settings").doc("config").onSnapshot(snap=>{
+      if(!snap.exists){ console.warn("settings/config yok"); return; }
+      const cfg = snap.data();
+      currentRound = cfg.roundId || "";
+      document.getElementById("roundId").textContent = "Hafta: " + currentRound;
 
-            function update() {
-                const now = new Date().getTime();
-                const distance = endTime - now;
+      if(cfg.votingOpen && cfg.votingEndsAt){
+        const endMillis = cfg.votingEndsAt.toDate().getTime();
+        startCountdown(endMillis);
+      }else{
+        document.getElementById("countdown").textContent = "Oylama kapalı";
+      }
+      loadGallery();
+    }, err=>console.error("config error:", err));
+  }
 
-                if (distance <= 0) {
-                    countdownElement.textContent = "Oylama kapandı!";
-                    clearInterval(timerInterval);
-                    return;
-                }
-
-                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                countdownElement.textContent = `Kalan süre: ${hours}sa ${minutes}dk ${seconds}sn`;
-            }
-
-            update();
-            const timerInterval = setInterval(update, 1000);
-        }
-
-        function loadConfig() {
-            db.collection("settings").doc("config").onSnapshot(doc => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    document.getElementById("roundId").textContent = "Hafta: " + data.roundId;
-                    currentRound = data.roundId;
-                    if (data.votingEndsAt && data.votingOpen) {
-                        updateCountdown(data.votingEndsAt.toDate().getTime());
-                    } else {
-                        document.getElementById("countdown").textContent = "Oylama kapalı";
-                    }
-                    loadGallery(); // roundId geldikten sonra galeriyi yükle
-                }
-            });
-        }
-
-        function loadGallery() {
-            db.collection("drawings").where("round", "==", currentRound).onSnapshot(snapshot => {
-                const gallery = document.getElementById("gallery");
-                gallery.innerHTML = "";
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const card = document.createElement("div");
-                    card.className = "card";
-                    card.innerHTML = `
-                        <img src="${data.imageUrl}" onclick="openModal('${data.imageUrl}')">
-                        <h4>${data.username}</h4>
-                        <p>Oy: ${data.votes}</p>
-                        <button onclick="vote('${doc.id}')">Oy Ver</button>
-                    `;
-                    gallery.appendChild(card);
-                });
-            });
-        }
-
-        async function vote(docId) {
-            if (!currentUser) {
-                alert("Oy vermek için kullanıcı adınızı yazın!");
-                return;
-            }
-
-            const existingVote = await db.collection("drawings")
-                .where("round", "==", currentRound)
-                .where("votedUsers", "array-contains", currentUser)
-                .get();
-
-            if (!existingVote.empty) {
-                alert("Bu turda zaten oy kullandınız!");
-                return;
-            }
-
-            const ref = db.collection("drawings").doc(docId);
-            await ref.update({
-                votes: firebase.firestore.FieldValue.increment(1),
-                votedUsers: firebase.firestore.FieldValue.arrayUnion(currentUser)
-            });
-        }
-
-        document.getElementById("uploadBtn").addEventListener("click", async () => {
-            currentUser = document.getElementById("username").value.trim();
-            const file = document.getElementById("imageFile").files[0];
-
-            if (!currentUser || !file) {
-                alert("Kullanıcı adı ve dosya seçmelisiniz!");
-                return;
-            }
-
-            const existingUpload = await db.collection("drawings")
-                .where("round", "==", currentRound)
-                .where("username", "==", currentUser)
-                .get();
-
-            if (!existingUpload.empty) {
-                alert("Bu turda zaten görsel yüklediniz!");
-                return;
-            }
-
-            const storageRef = storage.ref(`${currentRound}_${currentUser}.png`);
-            await storageRef.put(file);
-            const imageUrl = await storageRef.getDownloadURL();
-
-            await db.collection("drawings").add({
-                username: currentUser,
-                imageUrl: imageUrl,
-                votes: 0,
-                round: currentRound,
-                votedUsers: []
-            });
+  // Galeri
+  function loadGallery(){
+    if(!currentRound) return;
+    db.collection("drawings")
+      .where("round", "==", currentRound)
+      .orderBy("votes", "desc")
+      .onSnapshot(snap=>{
+        const host = document.getElementById("gallery");
+        host.innerHTML = "";
+        snap.forEach(doc=>{
+          const d = doc.data();
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <img class="thumb" src="${d.imageUrl}" alt="${d.username}" />
+            <h4>${d.username}</h4>
+            <p>Oy: ${d.votes || 0}</p>
+            <button data-id="${doc.id}">Oy Ver</button>
+          `;
+          // Modal açma
+          card.querySelector(".thumb").addEventListener("click", ()=>openModal(d.imageUrl));
+          // Oy verme
+          card.querySelector("button").addEventListener("click", ()=>vote(doc.id));
+          host.appendChild(card);
         });
+      }, err=>console.error("gallery error:", err));
+  }
 
-        // Modal aç/kapat
-        function openModal(imageUrl) {
-            const modal = document.getElementById("imageModal");
-            const modalImg = document.getElementById("modalImage");
-            modal.style.display = "block";
-            modalImg.src = imageUrl;
-        }
-        document.getElementById("closeModal").onclick = function() {
-            document.getElementById("imageModal").style.display = "none";
-        }
-        window.onclick = function(event) {
-            const modal = document.getElementById("imageModal");
-            if (event.target === modal) {
-                modal.style.display = "none";
-            }
-        }
+  // Tek oy kontrol + oy verme
+  async function vote(docId){
+    currentUser = document.getElementById("username").value.trim();
+    if(!currentUser){ alert("Oy vermek için kullanıcı adınızı yazın!"); return; }
 
-        loadConfig();
-    </script>
+    try{
+      // Bu turda bu kullanıcı herhangi bir görsele oy vermiş mi?
+      const already = await db.collection("drawings")
+        .where("round","==", currentRound)
+        .where("votedUsers","array-contains", currentUser)
+        .get();
+
+      if(!already.empty){
+        alert("Bu turda zaten oy kullandınız!");
+        return;
+      }
+
+      await db.collection("drawings").doc(docId).update({
+        votes: firebase.firestore.FieldValue.increment(1),
+        votedUsers: firebase.firestore.FieldValue.arrayUnion(currentUser)
+      });
+
+    }catch(e){
+      console.error(e);
+      alert("Oy verme sırasında hata.");
+    }
+  }
+
+  // Tek yükleme kontrol + yükleme
+  document.getElementById("uploadBtn").addEventListener("click", async ()=>{
+    currentUser = document.getElementById("username").value.trim();
+    const file = document.getElementById("imageFile").files[0];
+
+    if(!currentUser || !file){ alert("Kullanıcı adı ve dosya seçin!"); return; }
+    if(!currentRound){ alert("Round bilgisi yüklenmedi."); return; }
+
+    try{
+      // Aynı turda bu kullanıcı daha önce yüklemiş mi?
+      const exists = await db.collection("drawings")
+        .where("round","==", currentRound)
+        .where("username","==", currentUser)
+        .get();
+
+      if(!exists.empty){
+        alert("Bu turda zaten görsel yüklediniz!");
+        return;
+      }
+
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const storageRef = storage.ref(`${currentRound}_${currentUser}.${ext}`);
+      await storageRef.put(file);
+      const imageUrl = await storageRef.getDownloadURL();
+
+      await db.collection("drawings").add({
+        username: currentUser,
+        imageUrl,
+        votes: 0,
+        round: currentRound,
+        votedUsers: []
+      });
+
+      document.getElementById("imageFile").value = "";
+
+    }catch(e){
+      console.error(e);
+      alert("Yükleme sırasında hata.");
+    }
+  });
+
+  // Modal
+  function openModal(src){
+    const m = document.getElementById("imageModal");
+    const img = document.getElementById("modalImage");
+    img.src = src;
+    m.style.display = "block";
+  }
+  document.getElementById("closeModal").onclick = ()=>{document.getElementById("imageModal").style.display="none";}
+  window.onclick = e=>{
+    const m = document.getElementById("imageModal");
+    if(e.target === m) m.style.display = "none";
+  };
+
+  // Başlat
+  loadConfig();
+  </script>
 </body>
 </html>
