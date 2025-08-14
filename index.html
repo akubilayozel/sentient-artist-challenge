@@ -1,223 +1,331 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sentient Artist Challenge</title>
-  <style>
-    body{font-family:Arial, sans-serif;background:#0f0f10;color:#fff;text-align:center;margin:0}
-    h1{margin:24px 0 6px}
-    h3{margin:6px 0 18px;color:#cfcfcf}
-    #username{padding:10px 12px;border-radius:8px;border:1px solid #333;background:#17171a;color:#fff;outline:none;width:240px}
-    #uploadBtn{background:#4a6cf7;border:none;padding:10px 16px;border-radius:8px;color:#fff;margin-left:10px;cursor:pointer}
-    #uploadBtn:disabled{background:#555;cursor:not-allowed}
-    #gallery{max-width:1200px;margin:24px auto 60px;display:flex;flex-wrap:wrap;justify-content:center;gap:18px}
-    .card{background:#18191c;border:1px solid #282a2f;border-radius:14px;padding:10px;width:280px}
-    .card h4{margin:10px 0 6px}
-    .card p{margin:0;color:#c9c9c9}
-    .card button{background:#4a6cf7;border:none;padding:8px 14px;color:#fff;border-radius:8px;margin-top:10px;cursor:pointer}
-    .card button:disabled{background:#555;cursor:not-allowed}
-    .thumb{width:100%;border-radius:10px;cursor:pointer;transition:transform .2s}
-    .thumb:hover{transform:scale(1.03)}
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentient Artist Challenge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0f; --card:#14141b; --muted:#9aa3b2; --text:#e5e7eb;
+    --primary:#4f46e5; --primary-2:#6366f1; --accent:#22c55e; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}
+  .wrap{max-width:1180px;margin:28px auto 64px;padding:0 16px}
+  h1{font-size:36px;margin:0 0 8px;text-align:center;font-weight:800}
+  .sub{opacity:.8;text-align:center;margin-bottom:10px}
+  .timer{font-weight:700;text-align:center;margin:0 0 22px}
+  .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
+  input[type="text"]{background:#0f1117;border:1px solid #1f2533;color:var(--text);border-radius:10px;padding:11px 12px;outline:none;width:270px}
+  input[type="file"]{color:var(--muted)}
+  button{background:var(--primary);border:0;color:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+  button:hover{background:var(--primary-2)}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  @media(max-width:980px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
 
-    /* Modal */
-    .modal{display:none;position:fixed;z-index:999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.9)}
-    .modal-content{margin:5% auto;display:block;max-width:90%;max-height:80%}
-    .close{position:absolute;top:20px;right:28px;color:#fff;font-size:40px;cursor:pointer}
-  </style>
+  .card{background:var(--card);border:1px solid #1f2533;border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+  .imgbox{position:relative;background:#0f1117;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .imgbox img{max-width:100%;max-height:100%;object-fit:cover;width:100%;height:100%}
+  .meta{padding:12px 14px;border-top:1px solid #1f2533}
+  .user{font-weight:700;margin:0 0 8px}
+  .flex{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pill{background:#10131a;border:1px solid #1f2533;border-radius:999px;padding:6px 10px;font-size:13px;color:var(--muted)}
+  .vote{padding:9px 14px}
+  .muted{color:var(--muted)}
+  .ok{color:var(--accent);font-weight:700}
+  .warn{color:var(--danger);font-weight:700}
+
+  /* Admin – voters table */
+  .admin-bar{display:none;margin:14px auto 18px;max-width:1180px;padding:12px;border:1px dashed #2a3345;border-radius:12px}
+  .admin-bar.visible{display:block}
+  .table{background:var(--card);border:1px solid #1f2533;border-radius:14px;overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-top:1px solid #1f2533;text-align:left;font-size:14px;vertical-align:top}
+  th{background:#0f1117;font-weight:700}
+  .badge{display:inline-block;background:#0f1117;border:1px solid #1f2533;border-radius:8px;padding:4px 8px;margin:2px;font-size:12px}
+
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;padding:24px;z-index:50}
+  .modal.open{display:flex}
+  .modal-inner{max-width:90vw;max-height:85vh}
+  .modal-inner img{max-width:100%;max-height:85vh;display:block;border-radius:12px}
+</style>
 </head>
 <body>
-  <h1>Sentient Artist Challenge</h1>
-  <h3 id="roundId">Hafta: </h3>
-  <h3 id="countdown">Kalan süre: </h3>
+  <div class="wrap">
+    <h1>Sentient Artist Challenge</h1>
+    <div class="sub">Hafta: <span id="roundLabel">–</span></div>
+    <div class="timer">Kalan süre: <span id="countdown">–</span></div>
 
-  <!-- Yükleme alanı -->
-  <input id="username" placeholder="Kullanıcı adınız"/>
-  <input type="file" id="imageFile" />
-  <button id="uploadBtn">Yükle</button>
+    <div class="row">
+      <input id="username" type="text" placeholder="Kullanıcı adınız" />
+      <input id="file" type="file" accept="image/png, image/jpeg" />
+      <button id="uploadBtn">Yükle</button>
+    </div>
 
-  <div id="gallery"></div>
+    <!-- Admin panel (sadece doğru key ile liste görünür) -->
+    <div class="row" style="justify-content:center">
+      <input id="adminKeyInput" type="text" placeholder="Admin Key" style="width:220px">
+      <button id="showVotersBtn">Oy Verenleri Göster</button>
+    </div>
+    <div class="admin-bar" id="adminPanel">
+      <div class="table">
+        <table id="votersTable">
+          <thead>
+            <tr>
+              <th>Görsel Sahibi</th>
+              <th>Oy Sayısı</th>
+              <th>Oy Verenler (kullanıcı adları)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
 
-  <!-- Modal -->
-  <div id="imageModal" class="modal">
-    <span class="close" id="closeModal">&times;</span>
-    <img id="modalImage" class="modal-content"/>
+    <div class="grid" id="grid"></div>
   </div>
 
-  <!-- Firebase (COMPAT CDN'ler) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-inner">
+      <img id="modalImg" src="" alt="">
+    </div>
+  </div>
 
-  <script>
-  // --- Firebase config (senin projen) ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyCBL7S0goBeWDRU1ac3oAY9KZ40bcOYtO0",
-    authDomain: "sentient-artist-challenge.firebaseapp.com",
-    projectId: "sentient-artist-challenge",
-    storageBucket: "sentient-artist-challenge.firebasestorage.app",
-    messagingSenderId: "529201434995",
-    appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
-  };
+  <!-- Firebase v10 CDN -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, doc, getDoc, getDocs, query, where, orderBy,
+      updateDoc, setDoc, addDoc, serverTimestamp, increment, arrayUnion, runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getStorage, ref as sRef, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-  // Başlat
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const storage = firebase.storage();
+    /* >>>>>> BURAYA kendi Firebase Config'ini koy (seninkini zaten paylaştın) <<<<<< */
+    const firebaseConfig = {
+      apiKey: "AIzaSyCBL7S0goBeWDRU1ac3oAY9KZ40bcOYtO0",
+      authDomain: "sentient-artist-challenge.firebaseapp.com",
+      projectId: "sentient-artist-challenge",
+      storageBucket: "sentient-artist-challenge.firebasestorage.app",
+      messagingSenderId: "529201434995",
+      appId: "1:529201434995:web:f9eef65c6a00bd532a3506"
+    };
 
-  let currentRound = "";
-  let currentUser  = "";
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    const stg = getStorage(app);
 
-  // Sayaç
-  function startCountdown(endMillis){
-    const el = document.getElementById("countdown");
-    function tick(){
-      const now = Date.now();
-      const dist = endMillis - now;
-      if(dist <= 0){
-        el.textContent = "Oylama kapandı!";
-        clearInterval(tmr);
-        return;
+    const els = {
+      roundLabel: document.getElementById('roundLabel'),
+      countdown:  document.getElementById('countdown'),
+      username:   document.getElementById('username'),
+      file:       document.getElementById('file'),
+      uploadBtn:  document.getElementById('uploadBtn'),
+      grid:       document.getElementById('grid'),
+      modal:      document.getElementById('modal'),
+      modalImg:   document.getElementById('modalImg'),
+      adminKeyInput: document.getElementById('adminKeyInput'),
+      showVotersBtn: document.getElementById('showVotersBtn'),
+      adminPanel:   document.getElementById('adminPanel'),
+      votersTable:  document.querySelector('#votersTable tbody')
+    };
+
+    let CFG = { roundId: "", votingOpen: false, votingEndsAt: 0, adminKey: "" };
+    let drawings = []; // {id, data}
+
+    async function loadConfig(){
+      const snap = await getDoc(doc(db,'settings','config'));
+      if(snap.exists()){
+        const d = snap.data();
+        CFG.roundId      = d.roundId || "";
+        CFG.votingOpen   = !!d.votingOpen;
+        CFG.votingEndsAt = d.votingEndsAt || 0;
+        CFG.adminKey     = d.adminKey || "";
+        els.roundLabel.textContent = CFG.roundId || "—";
+        startCountdown();
+      } else {
+        els.roundLabel.textContent = "—";
       }
-      const hours = Math.floor((dist % (1000*60*60*24))/(1000*60*60));
-      const minutes = Math.floor((dist % (1000*60*60))/(1000*60));
-      const seconds = Math.floor((dist % (1000*60))/1000);
-      el.textContent = `Kalan süre: ${hours}sa ${minutes}dk ${seconds}sn`;
     }
-    tick();
-    const tmr = setInterval(tick, 1000);
-  }
 
-  // Ayarları dinle
-  function loadConfig(){
-    db.collection("settings").doc("config").onSnapshot(snap=>{
-      if(!snap.exists){ console.warn("settings/config yok"); return; }
-      const cfg = snap.data();
-      currentRound = cfg.roundId || "";
-      document.getElementById("roundId").textContent = "Hafta: " + currentRound;
+    function startCountdown(){
+      const tick = () => {
+        const now = Date.now();
+        const ms  = Math.max(0, (CFG.votingEndsAt || 0) - now);
+        const sec = Math.floor(ms/1000);
+        const d = Math.floor(sec / 86400);
+        const h = Math.floor((sec % 86400)/3600);
+        const m = Math.floor((sec % 3600)/60);
+        const s = sec % 60;
+        if(ms<=0){ els.countdown.textContent="Bitti"; return; }
+        els.countdown.textContent = `${d}g ${h}s ${m}dk ${s}sn`;
+        requestAnimationFrame(tick);
+      };
+      tick();
+    }
 
-      if(cfg.votingOpen && cfg.votingEndsAt){
-        const endMillis = cfg.votingEndsAt.toDate().getTime();
-        startCountdown(endMillis);
-      }else{
-        document.getElementById("countdown").textContent = "Oylama kapalı";
-      }
-      loadGallery();
-    }, err=>console.error("config error:", err));
-  }
+    async function loadDrawings(){
+      els.grid.innerHTML = "Yükleniyor…";
+      const qy = query(collection(db,'drawings'), where('round','==', CFG.roundId));
+      const qs = await getDocs(qy);
+      drawings = [];
+      qs.forEach(d=>drawings.push({id:d.id, ...d.data()}));
+      // Çok oy alandan az olana sırala
+      drawings.sort((a,b)=>(b.votes||0) - (a.votes||0));
+      renderGrid();
+    }
 
-  // Galeri
-  function loadGallery(){
-    if(!currentRound) return;
-    db.collection("drawings")
-      .where("round", "==", currentRound)
-      .orderBy("votes", "desc")
-      .onSnapshot(snap=>{
-        const host = document.getElementById("gallery");
-        host.innerHTML = "";
-        snap.forEach(doc=>{
-          const d = doc.data();
-          const card = document.createElement("div");
-          card.className = "card";
-          card.innerHTML = `
-            <img class="thumb" src="${d.imageUrl}" alt="${d.username}" />
-            <h4>${d.username}</h4>
-            <p>Oy: ${d.votes || 0}</p>
-            <button data-id="${doc.id}">Oy Ver</button>
-          `;
-          // Modal açma
-          card.querySelector(".thumb").addEventListener("click", ()=>openModal(d.imageUrl));
-          // Oy verme
-          card.querySelector("button").addEventListener("click", ()=>vote(doc.id));
-          host.appendChild(card);
+    function renderGrid(){
+      els.grid.innerHTML = "";
+      drawings.forEach(d=>{
+        const card = document.createElement('div');
+        card.className = 'card';
+        const imgbox = document.createElement('div');
+        imgbox.className = 'imgbox';
+        const img = document.createElement('img');
+        img.src = d.imageUrl;
+        img.alt = d.username;
+        img.addEventListener('click', ()=>{
+          els.modalImg.src = d.imageUrl; els.modal.classList.add('open');
         });
-      }, err=>console.error("gallery error:", err));
-  }
+        imgbox.appendChild(img);
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const u = document.createElement('div');
+        u.className='user';
+        u.textContent = d.username || "—";
+        const fx = document.createElement('div');
+        fx.className = 'flex';
+        const votes = document.createElement('div');
+        votes.className='pill';
+        votes.textContent = `Oy: ${d.votes||0}`;
+        const btn = document.createElement('button');
+        btn.className='vote';
+        btn.textContent='Oy Ver';
+        btn.addEventListener('click', ()=>vote(d));
+        fx.appendChild(votes); fx.appendChild(btn);
+        meta.appendChild(u); meta.appendChild(fx);
+        card.appendChild(imgbox); card.appendChild(meta);
+        els.grid.appendChild(card);
+      });
+    }
 
-  // Tek oy kontrol + oy verme
-  async function vote(docId){
-    currentUser = document.getElementById("username").value.trim();
-    if(!currentUser){ alert("Oy vermek için kullanıcı adınızı yazın!"); return; }
-
-    try{
-      // Bu turda bu kullanıcı herhangi bir görsele oy vermiş mi?
-      const already = await db.collection("drawings")
-        .where("round","==", currentRound)
-        .where("votedUsers","array-contains", currentUser)
-        .get();
-
-      if(!already.empty){
-        alert("Bu turda zaten oy kullandınız!");
-        return;
+    // Kullanıcının bu turda başka görsele oy verip vermediğini yerel listeden kontrol et
+    function userVotedSomewhere(username){
+      for(const d of drawings){
+        if(Array.isArray(d.votedUsers) && d.votedUsers.includes(username)) return true;
       }
+      return false;
+    }
 
-      await db.collection("drawings").doc(docId).update({
-        votes: firebase.firestore.FieldValue.increment(1),
-        votedUsers: firebase.firestore.FieldValue.arrayUnion(currentUser)
+    async function vote(drw){
+      const username = (els.username.value || "").trim();
+      if(!username){ alert("Kullanıcı adı gerekli."); return; }
+      if(!CFG.votingOpen){ alert("Oylama kapalı."); return; }
+      if(userVotedSomewhere(username)){ alert("Bu turda zaten oy verdiniz."); return; }
+
+      const drRef = doc(db,'drawings',drw.id);
+
+      // İşlem: votedUsers arrayUnion + votes increment ve yarışmanın round'ı eşleşiyor mu kontrolü
+      await runTransaction(db, async (tx)=>{
+        const snap = await tx.get(drRef);
+        if(!snap.exists()) throw new Error("Belge yok.");
+        const data = snap.data();
+        if(data.round !== CFG.roundId) throw new Error("Yanlış tur.");
+        const list = Array.isArray(data.votedUsers) ? data.votedUsers : [];
+        if(list.includes(username)) throw new Error("Bu görsele zaten oy verdiniz.");
+        // Ayrıca diğer görsellere oy verdimi? – ek kontrol (hafif): çizimlerde arama
+        if(userVotedSomewhere(username)) throw new Error("Bu turda zaten oy verdiniz.");
+        tx.update(drRef,{
+          votedUsers: arrayUnion(username),
+          votes: increment(1)
+        });
       });
 
-    }catch(e){
-      console.error(e);
-      alert("Oy verme sırasında hata.");
+      // Yerel görünümü tazele
+      await loadDrawings();
     }
-  }
 
-  // Tek yükleme kontrol + yükleme
-  document.getElementById("uploadBtn").addEventListener("click", async ()=>{
-    currentUser = document.getElementById("username").value.trim();
-    const file = document.getElementById("imageFile").files[0];
+    // Yükleme (kullanıcı başına tek görsel – aynı kullanıcıya ait belge varsa engeller)
+    async function upload(){
+      const username = (els.username.value || "").trim();
+      if(!username){ alert("Kullanıcı adı gerekli."); return; }
+      if(!CFG.votingOpen){ alert("Oylama kapalı (yükleme için yarışma açık olmalı)."); return; }
+      const file = els.file.files[0];
+      if(!file){ alert("Lütfen bir görsel seçin (JPEG/PNG)."); return; }
 
-    if(!currentUser || !file){ alert("Kullanıcı adı ve dosya seçin!"); return; }
-    if(!currentRound){ alert("Round bilgisi yüklenmedi."); return; }
+      // Aynı kullanıcı bu turda görsel yüklemiş mi?
+      const existQ = query(collection(db,'drawings'),
+        where('round','==',CFG.roundId),
+        where('username','==',username)
+      );
+      const exist = await getDocs(existQ);
+      if(!exist.empty){ alert("Bu tur için zaten görsel yüklediniz."); return; }
 
-    try{
-      // Aynı turda bu kullanıcı daha önce yüklemiş mi?
-      const exists = await db.collection("drawings")
-        .where("round","==", currentRound)
-        .where("username","==", currentUser)
-        .get();
+      // Storage'a yükle
+      const ext = file.name.split('.').pop().toLowerCase();
+      const safeName = `${CFG.roundId}_${username}.${ext}`.replace(/\s+/g,'_');
+      const rf = sRef(stg, `${CFG.roundId}/${safeName}`);
+      await uploadBytes(rf,file);
+      const url = await getDownloadURL(rf);
 
-      if(!exists.empty){
-        alert("Bu turda zaten görsel yüklediniz!");
-        return;
-      }
-
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const storageRef = storage.ref(`${currentRound}_${currentUser}.${ext}`);
-      await storageRef.put(file);
-      const imageUrl = await storageRef.getDownloadURL();
-
-      await db.collection("drawings").add({
-        username: currentUser,
-        imageUrl,
-        votes: 0,
-        round: currentRound,
-        votedUsers: []
+      await addDoc(collection(db,'drawings'),{
+        username, imageUrl: url, round: CFG.roundId,
+        votes: 0, votedUsers: [], createdAt: serverTimestamp()
       });
-
-      document.getElementById("imageFile").value = "";
-
-    }catch(e){
-      console.error(e);
-      alert("Yükleme sırasında hata.");
+      els.file.value = "";
+      await loadDrawings();
+      alert("Yüklendi!");
     }
-  });
 
-  // Modal
-  function openModal(src){
-    const m = document.getElementById("imageModal");
-    const img = document.getElementById("modalImage");
-    img.src = src;
-    m.style.display = "block";
-  }
-  document.getElementById("closeModal").onclick = ()=>{document.getElementById("imageModal").style.display="none";}
-  window.onclick = e=>{
-    const m = document.getElementById("imageModal");
-    if(e.target === m) m.style.display = "none";
-  };
+    // Admin – Oy verenler tablosu
+    function fillVotersTable(){
+      els.votersTable.innerHTML = "";
+      drawings.forEach(d=>{
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = d.username || "—";
+        const td2 = document.createElement('td'); td2.textContent = d.votes || 0;
+        const td3 = document.createElement('td');
+        const list = Array.isArray(d.votedUsers) ? d.votedUsers : [];
+        if(list.length===0){
+          td3.innerHTML = `<span class="muted">Henüz oy veren yok</span>`;
+        } else {
+          td3.append(...list.map(u=>{
+            const b = document.createElement('span'); b.className='badge'; b.textContent=u; return b;
+          }));
+        }
+        tr.append(td1,td2,td3);
+        els.votersTable.appendChild(tr);
+      });
+    }
 
-  // Başlat
-  loadConfig();
+    els.showVotersBtn.addEventListener('click', ()=>{
+      const key = (els.adminKeyInput.value||"").trim();
+      if(!key){ alert("Admin key girin."); return; }
+      if(key !== CFG.adminKey){ alert("Yetkisiz anahtar."); return; }
+      // doğruysa paneli göster ve tabloyu doldur
+      els.adminPanel.classList.add('visible');
+      fillVotersTable();
+    });
+
+    // Modal kapatma
+    els.modal.addEventListener('click', (e)=>{
+      if(e.target===els.modal || e.target===els.modalImg.parentElement){ els.modal.classList.remove('open'); }
+    });
+
+    els.uploadBtn.addEventListener('click', upload);
+
+    // Başlat
+    (async ()=>{
+      await loadConfig();
+      await loadDrawings();
+    })();
   </script>
 </body>
 </html>
